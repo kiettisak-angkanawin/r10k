@@ -1,6 +1,187 @@
 CHANGELOG
 =========
 
+2.5.5
+-----
+
+2017/06/02
+
+### Bug Fixes
+
+(#696) Move deprecated module check to install/reinstall/upgrade rather than
+synchronize. This fixes a major slowdown on redeployment.
+
+### Changes
+
+(RK-290) Add deprecation warning for duplicate module names in Puppetfile. This
+will cause an error in r10k v3.0.0.
+
+(RK-285) Update minitar dependency to 0.6.1
+
+2.5.4
+-----
+
+2017/04/05
+
+### Bug Fixes
+
+(PF-1317) Only use deprecated attribute when it exists.
+
+2.5.3
+-----
+
+2017/03/31
+
+### Bug Fixes
+
+(#645) Fix undefined method error when r10.yaml empty
+
+(#659)(RK-269) Puppetfile actions acknowledge :branch and :default_branch
+(Thanks to [Chris Cowley](https://github.com/chriscowley) for the report.)
+
+### Changes
+
+(PF-1317) Emit a warning when syncing a deprecated Forge module.
+
+2.5.2
+-----
+
+2017/02/07
+
+(#699) Pin minitar dependency to 0.5.4 to avoid a bug with the 0.6.0 release.
+(Thanks to [Logan Garrett](https://github.com/lngarrett) for the report and fix.)
+
+2.5.1
+-----
+
+2016/12/05
+
+(RK-78) Use :prune option for #fetch in Rugged::BareRepository
+
+Versions of the "rugged" gem prior to 0.24.0 lacked the ability to automatically
+"prune" branches from a local repo that no longer existed in the matching remote
+repo after a fetch. To work around this issue, r10k included code that would
+manually remove/recreate branches during a fetch. Since "rugged" 0.24.0 is now
+widely available, r10k has been updated to use the built-in "prune" option
+during a fetch and the workaround code has been removed.
+
+NOTE: If you use the "rugged" gem with r10k, you will need to manually upgrade
+it to a version >= 0.24.0 to take advantage of the new functionality. If you
+are using a "rugged" version less than 0.24.0, r10k will now issue a warning
+every time it fetches from a remote git repository.
+
+2.5.0
+-----
+
+2016/11/15
+
+### Bug Fixes
+
+(#669) Updated the behavior of the rugged based git provider to handle
+unexpected behavior around checkout and resets regarding file permissions,
+specifically, when resetting to an already checked out SHA the executable bit
+on files would not update.
+
+### Changes
+
+(#664) Added to the proxy error message for changes made to libcurl which gave
+new, surprising errors about unsupported proxy schemes.
+
+2.4.3
+-----
+
+2016/08/23
+
+### Bug Fixes
+
+(RK-266) Fixed an issue where the "puppetfile install" action was encountering an
+error when operating on a Puppetfile with "local" content declarations.
+
+2.4.2 (Yanked)
+--------------
+
+2016/08/22
+
+### Bug Fixes
+
+(RK-265) The "puppetfile install" action will no longer overwrite local
+modifications to managed Git content. Instead, a message will be logged at the
+"WARN" level indicating that the content was skipped. Note: The "deploy"
+actions will still overwrite local modications. For more background on this
+change, see below:
+
+In 2.4.0 a change was made to r10k's behavior when it encounters local
+modifications during "deploy" operations. Previously, r10k would log an error
+and skip updating the modified content. As of 2.4.0, local modifications will
+be overwritten and a warning will be logged. This change was considered a bug
+fix but was originally omitted from the changelog for that release. This change
+also inadvertently modified the behavior of the "puppetfile install" action. A
+command line flag to control this behavior more explicitly will likely be added
+in a future version.
+
+2.4.1
+-----
+
+2016/08/11
+
+### Bug Fixes
+
+(#634) Fix "undefined variable" error in "deploy module" action. (Special thanks
+to Andreas Ntaflos (antaflos) for the fix.)
+
+(#635) Reword some documentation around environment level purging.
+
+2.4.0
+-----
+
+2016/08/10
+
+### New Features
+
+(RK-222) New "install\_path" option for Git/SVN content.
+
+This feature allows you to specify where inside an environment each item from the
+Puppetfile should be installed to. See the [Puppetfile documentation](https://github.com/puppetlabs/r10k/blob/master/doc/puppetfile.mkd#per-item-install-path) for details.
+
+(RK-246) New "environment" level purging and configurable purge levels.
+
+You can now configure how r10k purges unmanaged content after a deployment. The
+default behavior should be unchanged but there is a new "purge\_levels" configuration
+option that can be used to enable new behavior or de-activate certain existing 
+behaviors. See the relevant [configuration documentation](https://github.com/puppetlabs/r10k/blob/master/doc/dynamic-environments/configuration.mkd#purge_levels) for more details.
+
+(RK-223) Ability to track control repo branch from content declarations.
+
+Puppetfile content sourced from Git can now be configured to attempt to track the branch
+name of the control repo branch being deployed. For example, if r10k is deploying
+the 'production' branch of your control repo, it will try to also deploy the
+'production' branch of a given Puppetfile content repo. See the [documentation](https://github.com/puppetlabs/r10k/blob/master/doc/puppetfile.mkd#control-repo-branch-tracking)
+for more details.
+
+### Internationalization
+
+All user-facing strings generated by r10k have been externalized to enable future
+iternationalization (i18n) and localization work.
+
+### Changed
+
+(RK-258) Symlinks inside of Forge modules will no longer cause r10k to exit non-zero.
+This situation used to raise an error but will now generate a WARN level log message
+instead.
+
+(#483) Local modifications to managed content will now be overwritten during "deploy"
+actions. (Note: This change inadvertently also affected the "puppetfile install"
+action in 2.4.0 and 2.4.1. This was fixed in 2.4.2. A command line flag to control
+this behavior more explicitly will likely be added in a future version.)
+
+### Bug Fixes
+
+(#616) Ensure that Forge module version strings are valid semantic versions. (Special
+thanks to Patrick Robinson (patrobinson) for the fix.)
+
+(#622) Fix typos in workflow docs. (Special thanks to Yury Frolov (mrdracon) for the
+fix.)
+
 2.3.0
 -----
 

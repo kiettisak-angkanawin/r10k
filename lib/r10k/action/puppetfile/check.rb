@@ -8,10 +8,10 @@ module R10K
       class Check < R10K::Action::Base
 
         def call
-          pf = R10K::Puppetfile.new(@root, @moduledir, @path)
+          pf = R10K::Puppetfile.new(@root, @moduledir, @puppetfile)
           begin
             pf.load!
-            $stderr.puts "Syntax OK"
+            $stderr.puts _("Syntax OK")
             true
           rescue => e
             $stderr.puts R10K::Errors::Formatting.format_exception(e, @trace)

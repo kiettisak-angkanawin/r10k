@@ -1,12 +1,15 @@
 require 'git_utils'
 require 'r10k_utils'
 require 'master_manipulator'
-test_name 'CODEMGMT-730 - C97977 - Specify HTTPS_PROXY environment var and proxy for specific git source'
+test_name 'CODEMGMT-730 - C97982 - HTTP_PROXY effects git source in puppetfile'
 
 #Init
 env_path = on(master, puppet('config print environmentpath')).stdout.rstrip
 r10k_fqp = get_r10k_fqp(master)
 
+git_repo_path = '/git_repos'
+git_repo_name = 'environments'
+git_control_remote = File.join(git_repo_path, "#{git_repo_name}.git")
 git_environments_path = '/root/environments'
 last_commit = git_last_commit(master, git_environments_path)
 git_provider = ENV['GIT_PROVIDER']
@@ -19,24 +22,21 @@ mod 'motd',
   :git    => 'https://github.com/puppetlabs/puppetlabs-motd'
 EOS
 
-proxy_env_value = 'https://cattastic.net:3219'
+proxy_env_value = 'http://ferritsarebest.net:3219'
 
 #In-line files
 r10k_conf = <<-CONF
 cachedir: '/var/cache/r10k'
 git:
   provider: '#{git_provider}'
-  repositories:
-    - remote: 'https://example.com/fake_git_source.git'
-      proxy: 'https://ilovecatvideos.com:3128'
 sources:
   control:
     basedir: "#{env_path}"
-    remote: "https://example.com/fake_git_source.git"
+    remote: "#{git_control_remote}"
 CONF
 
 teardown do
-  master.clear_env_var('HTTPS_PROXY')
+  master.clear_env_var('HTTP_PROXY')
 
   step 'Restore Original "r10k" Config'
   on(master, "mv #{r10k_config_bak_path} #{r10k_config_path}")
@@ -45,7 +45,7 @@ teardown do
   clean_up_r10k(master, last_commit, git_environments_path)
 end
 
-master.add_env_var('HTTPS_PROXY', proxy_env_value)
+master.add_env_var('HTTP_PROXY', proxy_env_value)
 
 step 'Backup Current "r10k" Config'
 on(master, "mv #{r10k_config_path} #{r10k_config_bak_path}")
@@ -64,7 +64,7 @@ git_add_commit_push(master, 'production', 'add Puppetfile', git_environments_pat
 
 #test
 on(master, "#{r10k_fqp} deploy environment -p", :accept_all_exit_codes => true) do |r|
-  regex = /(Couldn't|Could not) resolve proxy.*ilovecatvideos\.com/
+  regex = /(Couldn't|Could not) resolve proxy.*ferritsarebest\.net/i
   assert(r.exit_code == 1, 'expected error code was not observed')
   assert_match(regex, r.stderr, 'The expected error message was not observed' )
 end

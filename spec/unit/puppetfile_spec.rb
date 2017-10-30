@@ -5,6 +5,25 @@ describe R10K::Puppetfile do
 
   subject do
     described_class.new(
+      '/some/nonexistent/basedir',
+      nil,
+      nil,
+      'Puppetfile.r10k'
+    )
+  end
+
+  describe "a custom puppetfile Puppetfile.r10k" do
+    it "is the basedir joined with '/Puppetfile.r10k' path" do
+      expect(subject.puppetfile_path).to eq '/some/nonexistent/basedir/Puppetfile.r10k'
+    end
+  end
+
+end
+
+describe R10K::Puppetfile do
+
+  subject do
+    described_class.new(
       '/some/nonexistent/basedir'
     )
   end
@@ -14,6 +33,13 @@ describe R10K::Puppetfile do
       expect(subject.moduledir).to eq '/some/nonexistent/basedir/modules'
     end
   end
+
+  describe "the default puppetfile" do
+    it "is the basedir joined with '/Puppetfile' path" do
+      expect(subject.puppetfile_path).to eq '/some/nonexistent/basedir/Puppetfile'
+    end
+  end
+
 
   describe "setting moduledir" do
     it "changes to given moduledir if it is an absolute path" do
@@ -29,16 +55,26 @@ describe R10K::Puppetfile do
 
   describe "adding modules" do
     it "should accept Forge modules with a string arg" do
-      allow(R10K::Module).to receive(:new).with('puppet/test_module', subject.moduledir, '1.2.3').and_call_original
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', subject.moduledir, '1.2.3', anything).and_call_original
 
       expect { subject.add_module('puppet/test_module', '1.2.3') }.to change { subject.modules }
       expect(subject.modules.collect(&:name)).to include('test_module')
     end
 
+    it "should not accept Forge modules with a version comparison" do
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', subject.moduledir, '< 1.2.0', anything).and_call_original
+
+      expect {
+        subject.add_module('puppet/test_module', '< 1.2.0')
+      }.to raise_error(RuntimeError, /module puppet\/test_module.*doesn't have an implementation/i)
+
+      expect(subject.modules.collect(&:name)).not_to include('test_module')
+    end
+
     it "should accept non-Forge modules with a hash arg" do
       module_opts = { git: 'git@example.com:puppet/test_module.git' }
 
-      allow(R10K::Module).to receive(:new).with('puppet/test_module', subject.moduledir, module_opts).and_call_original
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', subject.moduledir, module_opts, anything).and_call_original
 
       expect { subject.add_module('puppet/test_module', module_opts) }.to change { subject.modules }
       expect(subject.modules.collect(&:name)).to include('test_module')
@@ -50,7 +86,7 @@ describe R10K::Puppetfile do
         git: 'git@example.com:puppet/test_module.git',
       }
 
-      allow(R10K::Module).to receive(:new).with('puppet/test_module', File.join(subject.basedir, 'vendor'), module_opts).and_call_original
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', File.join(subject.basedir, 'vendor'), module_opts, anything).and_call_original
 
       expect { subject.add_module('puppet/test_module', module_opts) }.to change { subject.modules }
       expect(subject.modules.collect(&:name)).to include('test_module')
@@ -64,7 +100,7 @@ describe R10K::Puppetfile do
         git: 'git@example.com:puppet/test_module.git',
       }
 
-      allow(R10K::Module).to receive(:new).with('puppet/test_module', install_path, module_opts).and_call_original
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', install_path, module_opts, anything).and_call_original
 
       expect { subject.add_module('puppet/test_module', module_opts) }.to change { subject.modules }
       expect(subject.modules.collect(&:name)).to include('test_module')
@@ -76,7 +112,7 @@ describe R10K::Puppetfile do
         git: 'git@example.com:puppet/test_module.git',
       }
 
-      allow(R10K::Module).to receive(:new).with('puppet/test_module', File.join(subject.basedir, 'vendor'), module_opts).and_call_original
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', File.join(subject.basedir, 'vendor'), module_opts, anything).and_call_original
 
       expect { subject.add_module('puppet/test_module', module_opts) }.to raise_error(R10K::Error, /cannot manage content.*is not within/i).and not_change { subject.modules }
     end
@@ -87,9 +123,34 @@ describe R10K::Puppetfile do
         git: 'git@example.com:puppet/test_module.git',
       }
 
-      allow(R10K::Module).to receive(:new).with('puppet/test_module', File.join(subject.basedir, 'vendor'), module_opts).and_call_original
+      allow(R10K::Module).to receive(:new).with('puppet/test_module', File.join(subject.basedir, 'vendor'), module_opts, anything).and_call_original
 
       expect { subject.add_module('puppet/test_module', module_opts) }.to raise_error(R10K::Error, /cannot manage content.*is not within/i).and not_change { subject.modules }
+    end
+  end
+
+  describe "#purge_exclusions" do
+    let(:managed_dirs) { ['dir1', 'dir2'] }
+
+    before(:each) do
+      allow(subject).to receive(:managed_directories).and_return(managed_dirs)
+    end
+
+    it "includes managed_directories" do
+      expect(subject.purge_exclusions).to match_array(managed_dirs)
+    end
+
+    context "when belonging to an environment" do
+      let(:env_contents) { ['env1', 'env2' ] }
+
+      before(:each) do
+        mock_env = double(:environment, desired_contents: env_contents)
+        allow(subject).to receive(:environment).and_return(mock_env)
+      end
+
+      it "includes environment's desired_contents" do
+        expect(subject.purge_exclusions).to match_array(managed_dirs + env_contents)
+      end
     end
   end
 
@@ -131,6 +192,40 @@ describe R10K::Puppetfile do
       }.to raise_error do |e|
         expect_wrapped_error(e, pf_path, ArgumentError)
       end
+    end
+
+    it "rejects Puppetfiles with duplicate module names" do
+      path = File.join(PROJECT_ROOT, 'spec', 'fixtures', 'unit', 'puppetfile', 'duplicate-module-error')
+      pf_path = File.join(path, 'Puppetfile')
+      subject = described_class.new(path)
+      expect {
+        subject.load!
+      }.to raise_error(R10K::Error, /Puppetfiles cannot contain duplicate module names/i)
+    end
+
+    it "wraps and re-raises name errors" do
+      path = File.join(PROJECT_ROOT, 'spec', 'fixtures', 'unit', 'puppetfile', 'name-error')
+      pf_path = File.join(path, 'Puppetfile')
+      subject = described_class.new(path)
+      expect {
+        subject.load!
+      }.to raise_error do |e|
+        expect_wrapped_error(e, pf_path, NameError)
+      end
+    end
+
+    it "accepts a forge module with a version" do
+      path = File.join(PROJECT_ROOT, 'spec', 'fixtures', 'unit', 'puppetfile', 'valid-forge-with-version')
+      pf_path = File.join(path, 'Puppetfile')
+      subject = described_class.new(path)
+      expect { subject.load! }.not_to raise_error
+    end
+
+    it "accepts a forge module without a version" do
+      path = File.join(PROJECT_ROOT, 'spec', 'fixtures', 'unit', 'puppetfile', 'valid-forge-without-version')
+      pf_path = File.join(path, 'Puppetfile')
+      subject = described_class.new(path)
+      expect { subject.load! }.not_to raise_error
     end
   end
 

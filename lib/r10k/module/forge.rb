@@ -13,7 +13,11 @@ class R10K::Module::Forge < R10K::Module::Base
   R10K::Module.register(self)
 
   def self.implement?(name, args)
-    !!(name.match %r[\w+[/-]\w+])
+    !!(name.match %r[\w+[/-]\w+]) && valid_version?(args)
+  end
+
+  def self.valid_version?(expected_version)
+    expected_version == :latest || expected_version.nil? || SemanticPuppet::Version.valid?(expected_version)
   end
 
   # @!attribute [r] metadata
@@ -28,8 +32,9 @@ class R10K::Module::Forge < R10K::Module::Base
 
   include R10K::Logging
 
-  def initialize(title, dirname, expected_version)
+  def initialize(title, dirname, expected_version, environment=nil)
     super
+
     @metadata_file = R10K::Module::MetadataFile.new(path + 'metadata.json')
     @metadata = @metadata_file.read
 
@@ -37,7 +42,7 @@ class R10K::Module::Forge < R10K::Module::Base
     @v3_module = PuppetForge::V3::Module.new(:slug => @title)
   end
 
-  def sync(options = {})
+  def sync(opts={})
     case status
     when :absent
       install
@@ -62,7 +67,7 @@ class R10K::Module::Forge < R10K::Module::Base
       begin
         @expected_version = @v3_module.current_release.version
       rescue Faraday::ResourceNotFound => e
-        raise PuppetForge::ReleaseNotFound, "The module #{@title} does not exist on #{PuppetForge::V3::Release.conn.url_prefix}.", e.backtrace
+        raise PuppetForge::ReleaseNotFound, _("The module %{title} does not exist on %{url}.") % {title: @title, url: PuppetForge::V3::Release.conn.url_prefix}, e.backtrace
       end
     end
     @expected_version
@@ -81,6 +86,14 @@ class R10K::Module::Forge < R10K::Module::Base
 
   def insync?
     status == :insync
+  end
+
+  def deprecated?
+    begin
+      @v3_module.fetch && @v3_module.has_attribute?('deprecated_at') && !@v3_module.deprecated_at.nil?
+    rescue Faraday::ResourceNotFound => e
+      raise PuppetForge::ReleaseNotFound, _("The module %{title} does not exist on %{url}.") % {title: @title, url: PuppetForge::V3::Release.conn.url_prefix}, e.backtrace
+    end
   end
 
   # Determine the status of the forge module.
@@ -124,6 +137,10 @@ class R10K::Module::Forge < R10K::Module::Base
   end
 
   def install
+    if deprecated?
+      logger.warn "Puppet Forge module '#{@v3_module.slug}' has been deprecated, visit https://forge.puppet.com/#{@v3_module.slug.tr('-','/')} for more information."
+    end
+
     parent_path = @path.parent
     if !parent_path.exist?
       parent_path.mkpath
@@ -150,7 +167,7 @@ class R10K::Module::Forge < R10K::Module::Base
     if (match = title.match(/\A(\w+)[-\/](\w+)\Z/))
       [match[1], match[2]]
     else
-      raise ArgumentError, "Forge module names must match 'owner/modulename'"
+      raise ArgumentError, _("Forge module names must match 'owner/modulename'")
     end
   end
 end

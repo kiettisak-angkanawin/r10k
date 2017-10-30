@@ -17,11 +17,7 @@ implementation of Puppet [dynamic environments][workflow].
 Requirements
 ------------
 
-R10k supports the following Ruby versions:
-
-  - 1.9.3
-  - 2.0.0
-  - 2.1.0
+R10k supports the Ruby versions `>= 2.0.0`.
 
 R10k requires additional components, depending on how you plan on managing
 environments and modules.
@@ -85,6 +81,22 @@ information see the topic specific documentation:
 
 For more general questions, see the [FAQ](doc/faq.mkd).
 
+Development
+-----------
+
+### i18n
+
+R10k has now had all user-facing strings in error messages and log messages
+externalized. When adding new error or log messages please follow the
+instructions for [writing translatable code](https://github.com/puppetlabs/gettext-setup-gem#writing-translatable-code).
+
+### l10n
+
+When localizing the strings found in R10k, follow the prescribed
+[translation workflow](https://github.com/puppetlabs/gettext-setup-gem#translation-workflow).
+The workflow describes the rake tasks provided to generate the .po files for
+each locale.
+
 Getting help
 ------------
 
@@ -106,9 +118,6 @@ Please see the CHANGELOG for a listing of the (very awesome) contributors.
 
 ## Maintenance
 
-Maintainers:
-
-* Jesse Scott, jesse@puppet.com
-* Anderson Mills, anderson@puppet.com
+See [MAINTAINERS](MAINTAINERS) (json file)
 
 Tickets: File at https://tickets.puppet.com/browse/RK

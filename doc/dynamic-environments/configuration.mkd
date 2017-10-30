@@ -46,10 +46,9 @@ For example:
 cachedir: '/var/cache/r10k'
 ```
 
-[prerun_command](http://docs.puppetlabs.com/references/latest/configuration.html#preruncommand)
 
 The cachedir setting defaults to `~/.r10k`. If the HOME environment variable is
-unset r10k will assume that r10k is being run with the Puppet [`prerun_command`][prerun_command]
+unset r10k will assume that r10k is being run with the Puppet [`prerun_command`](http://docs.puppetlabs.com/references/latest/configuration.html#preruncommand)
 setting and will set the cachedir default to `/root/.r10k`.
 
 ### proxy
@@ -243,8 +242,8 @@ Enabling this purge level will cause r10k to load and parse the Puppetfile for
 the environment even without the `--puppetfile` flag being set. However,
 Puppetfile content will still only be deployed if the environment is new or
 the `--puppetfile` flag is set. Additionally, no environment-level content
-will be purged if a Puppetfile content deploy was triggered but an error was
-encountered.
+will be purged if any errors are encountered while evaluating the Puppetfile
+or deploying its contents.
 
 Note that the .r10k-deploy.json file is exempt from this purging.
 

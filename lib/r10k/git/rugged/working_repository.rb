@@ -25,7 +25,7 @@ class R10K::Git::Rugged::WorkingRepository < R10K::Git::Rugged::BaseRepository
   #
   # @return [void]
   def clone(remote, opts = {})
-    logger.debug1 { "Cloning '#{remote}' into #{@path}" }
+    logger.debug1 { _("Cloning '%{remote}' into %{path}") % {remote: remote, path: @path } }
 
     # libgit2/rugged doesn't support cloning a repository and providing an
     # alternate object database, making the handling of :alternates a noop.
@@ -64,7 +64,7 @@ class R10K::Git::Rugged::WorkingRepository < R10K::Git::Rugged::BaseRepository
     sha = resolve(ref)
 
     if sha
-      logger.debug2 { "Checking out ref '#{ref}' (resolved to SHA '#{sha}') in repository #{@path}" }
+      logger.debug2 { _("Checking out ref '%{ref}' (resolved to SHA '%{sha}') in repository %{path}") % {ref: ref, sha: sha, path: @path} }
     else
       raise R10K::Git::GitError.new("Unable to check out unresolvable ref '#{ref}'", git_dir: git_dir)
     end
@@ -73,13 +73,18 @@ class R10K::Git::Rugged::WorkingRepository < R10K::Git::Rugged::BaseRepository
     force = !opts.has_key?(:force) || opts[:force]
 
     with_repo do |repo|
-      repo.checkout(sha)
-      repo.reset(sha, :hard) if force
+      # rugged/libgit2 will not update (at least) the execute bit a file if the SHA is already at
+      # the value being reset to, so this is now changed to an if ... else
+      if force
+        repo.reset(sha, :hard)
+      else
+        repo.checkout(sha)
+      end
     end
   end
 
   def fetch(remote_name = 'origin')
-    logger.debug1 { "Fetching remote '#{remote_name}' at #{@path}" }
+    logger.debug1 { _("Fetching remote '%{remote}' at %{path}") % {remote: remote_name, path: @path} }
     options = {:credentials => credentials}
     refspecs = ["+refs/heads/*:refs/remotes/#{remote_name}/*"]
 
@@ -113,7 +118,16 @@ class R10K::Git::Rugged::WorkingRepository < R10K::Git::Rugged::BaseRepository
   end
 
   def dirty?
-    # TODO
+    with_repo do |repo|
+      diff = repo.diff_workdir('HEAD')
+
+      diff.each_patch do |p|
+        logger.debug(_("Found local modifications in %{file_path}" % {file_path: File.join(@path, p.delta.old_file[:path])}))
+        logger.debug1(p.to_s)
+      end
+
+      return diff.size > 0
+    end
   end
 
   private

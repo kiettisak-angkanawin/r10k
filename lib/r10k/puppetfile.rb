@@ -34,11 +34,16 @@ class Puppetfile
   attr_accessor :environment
 
   # @param [String] basedir
-  # @param [String] puppetfile The path to the Puppetfile, default to #{basedir}/Puppetfile
-  def initialize(basedir, moduledir = nil, puppetfile = nil)
+  # @param [String] moduledir The directory to install the modules, default to #{basedir}/modules
+  # @param [String] puppetfile_path The path to the Puppetfile, default to #{basedir}/Puppetfile
+  # @param [String] puppetfile_name The name of the Puppetfile, default to 'Puppetfile'
+  def initialize(basedir, moduledir = nil, puppetfile_path = nil, puppetfile_name = nil )
     @basedir         = basedir
     @moduledir       = moduledir  || File.join(basedir, 'modules')
-    @puppetfile_path = puppetfile || File.join(basedir, 'Puppetfile')
+    @puppetfile_name = puppetfile_name || 'Puppetfile'
+    @puppetfile_path = puppetfile_path || File.join(basedir, @puppetfile_name)
+
+    logger.info _("Using Puppetfile '%{puppetfile}'") % {puppetfile: @puppetfile_path}
 
     @modules = []
     @managed_content = {}
@@ -51,16 +56,31 @@ class Puppetfile
     if File.readable? @puppetfile_path
       self.load!
     else
-      logger.debug "Puppetfile #{@puppetfile_path.inspect} missing or unreadable"
+      logger.debug _("Puppetfile %{path} missing or unreadable") % {path: @puppetfile_path.inspect}
     end
   end
 
   def load!
     dsl = R10K::Puppetfile::DSL.new(self)
     dsl.instance_eval(puppetfile_contents, @puppetfile_path)
+    validate_no_duplicate_names(@modules)
     @loaded = true
-  rescue SyntaxError, LoadError, ArgumentError => e
-    raise R10K::Error.wrap(e, "Failed to evaluate #{@puppetfile_path}")
+  rescue SyntaxError, LoadError, ArgumentError, NameError => e
+    raise R10K::Error.wrap(e, _("Failed to evaluate %{path}") % {path: @puppetfile_path})
+  end
+
+  # @param [Array<String>] modules
+  def validate_no_duplicate_names(modules)
+    dupes = modules
+            .group_by { |mod| mod.name }
+            .select { |_, v| v.size > 1 }
+            .map(&:first)
+    unless dupes.empty?
+      msg = _('Puppetfiles cannot contain duplicate module names.')
+      msg += ' '
+      msg += _("Remove the duplicates of the following modules: %{dupes}" % { dupes: dupes.join(' ') })
+      raise R10K::Error.new(msg)
+    end
   end
 
   # @param [String] forge
@@ -90,7 +110,7 @@ class Puppetfile
     # Keep track of all the content this Puppetfile is managing to enable purging.
     @managed_content[install_path] = Array.new unless @managed_content.has_key?(install_path)
 
-    mod = R10K::Module.new(name, install_path, args)
+    mod = R10K::Module.new(name, install_path, args, @environment)
 
     @managed_content[install_path] << mod.name
     @modules << mod
@@ -113,6 +133,16 @@ class Puppetfile
     @managed_content.flat_map do |install_path, modnames|
       modnames.collect { |name| File.join(install_path, name) }
     end
+  end
+
+  def purge_exclusions
+    exclusions = managed_directories
+
+    if environment && environment.respond_to?(:desired_contents)
+      exclusions += environment.desired_contents
+    end
+
+    exclusions
   end
 
   def accept(visitor)
@@ -174,7 +204,7 @@ class Puppetfile
     end
 
     def method_missing(method, *args)
-      raise NoMethodError, "unrecognized declaration '#{method}'"
+      raise NoMethodError, _("unrecognized declaration '%{method}'") % {method: method}
     end
   end
 end

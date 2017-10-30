@@ -18,24 +18,27 @@ Gem::Specification.new do |s|
     dynamic environments.
   DESCRIPTION
 
-  s.required_ruby_version = '>= 1.9.3'
+  s.required_ruby_version = '>= 2.0.0'
 
   s.license  = 'Apache-2.0'
 
   s.add_dependency 'colored',   '1.2'
-  s.add_dependency 'cri',       '~> 2.6.1'
+  s.add_dependency 'cri',       '~> 2.8'
 
   s.add_dependency 'log4r',     '1.1.10'
   s.add_dependency 'multi_json', '~> 1.10'
 
   s.add_dependency 'puppet_forge', '~> 2.2'
   s.add_dependency 'semantic_puppet', '~> 0.1.0'
-  s.add_dependency 'minitar'
+
+  s.add_dependency 'gettext-setup', '~>0.24'
 
   s.add_development_dependency 'rspec', '~> 3.1'
 
+  s.add_development_dependency 'rake'
 
   s.add_development_dependency 'yard', '~> 0.8.7.3'
+  s.add_development_dependency 'minitar', '~> 0.6.1'
 
   s.files        = %x[git ls-files].split($/)
   s.require_path = 'lib'

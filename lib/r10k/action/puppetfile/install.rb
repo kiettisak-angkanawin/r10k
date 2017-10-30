@@ -26,8 +26,13 @@ module R10K
         end
 
         def visit_module(mod)
-          logger.info "Updating module #{mod.path}"
-          mod.sync
+          logger.info _("Updating module %{mod_path}") % {mod_path: mod.path}
+
+          if mod.respond_to?(:desired_ref) && mod.desired_ref == :control_branch
+            logger.warn _("Cannot track control repo branch for content '%{name}' when not part of a 'deploy' action, will use default if available." % {name: mod.name})
+          end
+
+          mod.sync(force: false) # Don't force sync for 'puppetfile install' RK-265
         end
 
         def allowed_initialize_opts

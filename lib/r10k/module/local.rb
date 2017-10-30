@@ -30,7 +30,7 @@ class R10K::Module::Local < R10K::Module::Base
     :insync
   end
 
-  def sync
-    logger.debug1 "Module #{title} is a local module, always indicating synced."
+  def sync(opts={})
+    logger.debug1 _("Module %{title} is a local module, always indicating synced.") % {title: title}
   end
 end

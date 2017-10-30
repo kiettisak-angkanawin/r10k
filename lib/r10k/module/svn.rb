@@ -44,9 +44,11 @@ class R10K::Module::SVN < R10K::Module::Base
     :password => :self
   }
 
-  def initialize(name, dirname, opts)
+  def initialize(name, dirname, opts, environment=nil)
     super
+
     setopts(opts, INITIALIZE_OPTS)
+
     @working_dir = R10K::SVN::WorkingDir.new(@path, :username => @username, :password => @password)
   end
 
@@ -64,7 +66,7 @@ class R10K::Module::SVN < R10K::Module::Base
     end
   end
 
-  def sync
+  def sync(opts={})
     case status
     when :absent
       install

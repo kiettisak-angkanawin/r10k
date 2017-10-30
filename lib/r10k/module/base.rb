@@ -36,12 +36,13 @@ class R10K::Module::Base
   # @param title [String]
   # @param dirname [String]
   # @param args [Array]
-  def initialize(title, dirname, args)
+  def initialize(title, dirname, args, environment=nil)
     @title   = PuppetForge::V3.normalize_name(title)
     @dirname = dirname
     @args    = args
     @owner, @name = parse_title(@title)
     @path = Pathname.new(File.join(@dirname, @name))
+    @environment = environment
   end
 
   # @deprecated
@@ -52,7 +53,7 @@ class R10K::Module::Base
 
   # Synchronize this module with the indicated state.
   # @abstract
-  def sync
+  def sync(opts={})
     raise NotImplementedError
   end
 
@@ -97,7 +98,7 @@ class R10K::Module::Base
     elsif (match = title.match(/\A(\w+)[-\/](\w+)\Z/))
       [match[1], match[2]]
     else
-      raise ArgumentError, "Module name (#{title}) must match either 'modulename' or 'owner/modulename'"
+      raise ArgumentError, _("Module name (%{title}) must match either 'modulename' or 'owner/modulename'") % {title: title}
     end
   end
 end
